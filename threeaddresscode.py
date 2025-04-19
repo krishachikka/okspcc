@@ -1,0 +1,108 @@
+import re
+
+# Function to convert infix expression to postfix notation
+def infix_to_postfix(infix):
+    precedence = {'+': 1, '-': 1, '*': 2, '/': 2, 'u-': 3}  # Unary minus has highest precedence
+    stack = []
+    postfix = []
+    prev_token = None
+
+    for token in infix:
+        if token.isalnum():  # Operand (Variable)
+            postfix.append(token)
+        elif token == '(':
+            stack.append(token)
+        elif token == ')':
+            while stack and stack[-1] != '(':
+                postfix.append(stack.pop())
+            stack.pop()  # Remove '('
+        else:  # Operator
+            # Handling unary minus
+            if token == '-' and (prev_token is None or prev_token in "(-+*/"):
+                token = 'u-'  # Mark as unary minus
+
+            while stack and stack[-1] in precedence and precedence[token] <= precedence[stack[-1]]:
+                postfix.append(stack.pop())
+
+            stack.append(token)
+
+        prev_token = token
+
+    while stack:
+        postfix.append(stack.pop())
+
+    return postfix
+
+# Function to generate optimized Three Address Code (TAC)
+def generate_tac(postfix):
+    stack = []
+    tac = []
+    temp_count = 1
+    subexpression_map = {}
+
+    for token in postfix:
+        if token.isalnum():  # Operand
+            stack.append(token)
+        elif token == 'u-':  # Unary minus
+            op = stack.pop()
+            expr = f"-{op}"
+            if expr in subexpression_map:
+                temp_var = subexpression_map[expr]
+            else:
+                temp_var = f"t{temp_count}"
+                tac.append(f"{temp_var} = - {op}")
+                subexpression_map[expr] = temp_var
+                temp_count += 1
+            stack.append(temp_var)
+        else:  # Binary operator
+            op2 = stack.pop()
+            op1 = stack.pop()
+            expr = f"{op1} {token} {op2}"
+
+            if expr in subexpression_map:  # Reuse temp variable if available
+                temp_var = subexpression_map[expr]
+            else:
+                temp_var = f"t{temp_count}"
+                tac.append(f"{temp_var} = {op1} {token} {op2}")
+                subexpression_map[expr] = temp_var
+                temp_count += 1
+
+            stack.append(temp_var)
+
+    return tac
+
+# Main function
+def main():
+    user_input = input("Enter the infix expression: ")
+    
+    # Remove spaces and split characters properly
+    infix = re.findall(r'[a-zA-Z0-9]+|[\+\-\*/\(\)]', user_input)
+
+    # Convert to postfix notation
+    postfix = infix_to_postfix(infix)
+    print(f"\nPostfix Notation: {''.join(postfix)}")
+
+    # Generate Optimized Three Address Code
+    tac = generate_tac(postfix)
+    
+    print("\nThree Address Code (TAC):")
+    for line in tac:
+        print(line)
+
+if __name__ == "__main__":
+    main()
+
+# Enter the infix expression: (a+b*c)/(a-b*c)
+
+# Postfix Notation: abc*+abc*-/
+
+# Three Address Code (TAC):
+# t1 = b * c
+# t2 = a + t1
+# t3 = a - t1
+# t4 = t2 / t3
+
+# How It Works
+# - Detects repeated subexpressions and reuses temporary variables.
+# - Avoids unnecessary calculations by storing subexpression results.
+# - Generates optimized Three Address Code (TAC).
